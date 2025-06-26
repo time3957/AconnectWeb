@@ -1,0 +1,11 @@
+# aams_backend/.gitignore
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtualenv
+aams_backend_env/
