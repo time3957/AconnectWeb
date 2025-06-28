@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../services/api';
 import './DashboardPage.css';
@@ -7,17 +7,111 @@ function DashboardPage() {
     const [user, setUser] = useState(null);
     const [stats, setStats] = useState({
         totalUsers: 0,
+        activeUsers: 0,
+        inactiveUsers: 0,
         totalProjects: 0,
-        activeProjects: 0
+        activeProjects: 0,
+        inactiveProjects: 0,
+        roleStats: {}
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        loadDashboardData();
+    const loadStatsRef = useRef();
+
+    const loadStats = useCallback(async (userData) => {
+        try {
+            // ดึงจำนวนผู้ใช้ (สำหรับ Admin/Superuser เท่านั้น)
+            if (userData?.is_superuser || userData?.is_staff) {
+                try {
+                    const token = localStorage.getItem('accessToken');
+                    const response = await fetch('http://localhost:8000/api/users/', {
+                        headers: {
+                            'Authorization': token ? `Bearer ${token}` : undefined,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    if (!response.ok) {
+                        throw new Error('ไม่สามารถดึงข้อมูลผู้ใช้ได้');
+                    }
+                    const allUsers = await response.json();
+                    console.log('usersResponse.data', allUsers);
+                    const activeUsers = allUsers.filter(user => user.is_active);
+                    const inactiveUsers = allUsers.filter(user => !user.is_active);
+                    
+                    // นับจำนวนผู้ใช้ตาม Role
+                    const roleStats = {};
+                    allUsers.forEach(user => {
+                        if (user.user_roles && user.user_roles.length > 0) {
+                            user.user_roles.forEach(userRole => {
+                                const roleName = userRole.role_name || 'Unknown';
+                                roleStats[roleName] = (roleStats[roleName] || 0) + 1;
+                            });
+                        }
+                    });
+
+                    setStats(prev => ({
+                        ...prev,
+                        totalUsers: allUsers.length,
+                        activeUsers: activeUsers.length,
+                        inactiveUsers: inactiveUsers.length,
+                        roleStats: roleStats
+                    }));
+                } catch (error) {
+                    console.error('Error loading user stats:', error);
+                    // ถ้าไม่สามารถดึงข้อมูลได้ ให้ใช้ค่าเริ่มต้น
+                    setStats(prev => ({
+                        ...prev,
+                        totalUsers: 0,
+                        activeUsers: 0,
+                        inactiveUsers: 0,
+                        roleStats: {}
+                    }));
+                }
+            }
+
+            // ดึงจำนวนโครงการ
+            try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch('http://localhost:8000/api/projects/', {
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : undefined,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error('ไม่สามารถดึงข้อมูลโครงการได้');
+                }
+                const allProjects = await response.json();
+                console.log('projectsResponse.data', allProjects);
+                const activeProjects = allProjects.filter(project => project.is_active);
+                const inactiveProjects = allProjects.filter(project => !project.is_active);
+
+                setStats(prev => ({
+                    ...prev,
+                    totalProjects: allProjects.length,
+                    activeProjects: activeProjects.length,
+                    inactiveProjects: inactiveProjects.length
+                }));
+            } catch (error) {
+                console.error('Error loading project stats:', error);
+                setStats(prev => ({
+                    ...prev,
+                    totalProjects: 0,
+                    activeProjects: 0,
+                    inactiveProjects: 0
+                }));
+            }
+
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
     }, []);
 
-    const loadDashboardData = async () => {
+    // เก็บ reference ของ loadStats
+    loadStatsRef.current = loadStats;
+
+    const loadDashboardData = useCallback(async () => {
         try {
             setLoading(true);
             
@@ -26,7 +120,7 @@ function DashboardPage() {
             setUser(userResponse.data);
 
             // ดึงข้อมูลสถิติ
-            await loadStats(userResponse.data);
+            await loadStatsRef.current(userResponse.data);
 
         } catch (error) {
             console.error('Error loading dashboard data:', error);
@@ -37,7 +131,7 @@ function DashboardPage() {
                     const parsedUser = JSON.parse(userData);
                     setUser(parsedUser);
                     // ดึงข้อมูลสถิติด้วยข้อมูลจาก localStorage
-                    await loadStats(parsedUser);
+                    await loadStatsRef.current(parsedUser);
                 } catch (parseError) {
                     console.error('Error parsing user data:', parseError);
                     setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -48,34 +142,11 @@ function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const loadStats = async (userData) => {
-        try {
-            // ดึงจำนวนผู้ใช้ (สำหรับ Admin/Superuser เท่านั้น)
-            if (userData?.is_superuser || userData?.is_staff) {
-                const usersResponse = await apiClient.get('/api/users/');
-                setStats(prev => ({
-                    ...prev,
-                    totalUsers: usersResponse.data.length
-                }));
-            }
-
-            // ดึงจำนวนโครงการ
-            const projectsResponse = await apiClient.get('/api/projects/');
-            const allProjects = projectsResponse.data;
-            const activeProjects = allProjects.filter(project => project.is_active);
-
-            setStats(prev => ({
-                ...prev,
-                totalProjects: allProjects.length,
-                activeProjects: activeProjects.length
-            }));
-
-        } catch (error) {
-            console.error('Error loading stats:', error);
-        }
-    };
+    useEffect(() => {
+        loadDashboardData();
+    }, [loadDashboardData]);
 
     const getUserRole = () => {
         if (user?.is_superuser) return 'ผู้ดูแลระบบ (Superuser)';
@@ -136,6 +207,10 @@ function DashboardPage() {
                                 <div className="stat-info">
                                     <h3>{stats.totalUsers}</h3>
                                     <p>ผู้ใช้ทั้งหมด</p>
+                                    <div className="stat-details">
+                                        <span className="active">✅ {stats.activeUsers} ใช้งาน</span>
+                                        <span className="inactive">❌ {stats.inactiveUsers} ปิดใช้งาน</span>
+                                    </div>
                                 </div>
                             </div>
                             <div className="stat-card">
@@ -143,16 +218,45 @@ function DashboardPage() {
                                 <div className="stat-info">
                                     <h3>{stats.totalProjects}</h3>
                                     <p>โครงการทั้งหมด</p>
+                                    <div className="stat-details">
+                                        <span className="active">✅ {stats.activeProjects} ใช้งาน</span>
+                                        <span className="inactive">❌ {stats.inactiveProjects} ปิดใช้งาน</span>
+                                    </div>
                                 </div>
                             </div>
                             <div className="stat-card">
-                                <div className="stat-icon">✅</div>
+                                <div className="stat-icon">🎭</div>
                                 <div className="stat-info">
-                                    <h3>{stats.activeProjects}</h3>
-                                    <p>โครงการที่ใช้งาน</p>
+                                    <h3>{Object.keys(stats.roleStats).length}</h3>
+                                    <p>ประเภท Role</p>
+                                    <div className="stat-details">
+                                        {Object.entries(stats.roleStats).slice(0, 3).map(([role, count]) => (
+                                            <span key={role} className="role-stat">
+                                                {role}: {count}
+                                            </span>
+                                        ))}
+                                        {Object.keys(stats.roleStats).length > 3 && (
+                                            <span className="more">+{Object.keys(stats.roleStats).length - 3} อื่นๆ</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        
+                        {/* แสดงสถิติ Role แบบละเอียด */}
+                        {Object.keys(stats.roleStats).length > 0 && (
+                            <div className="role-stats-section">
+                                <h3>สถิติตาม Role</h3>
+                                <div className="role-stats-grid">
+                                    {Object.entries(stats.roleStats).map(([role, count]) => (
+                                        <div key={role} className="role-stat-card">
+                                            <div className="role-name">{role}</div>
+                                            <div className="role-count">{count} คน</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

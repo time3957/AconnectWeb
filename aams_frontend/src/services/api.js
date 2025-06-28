@@ -1,7 +1,16 @@
 // src/services/api.js
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+// ตรวจสอบและกำหนด baseURL ที่ถูกต้อง
+let baseURL = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000';
+
+// ตรวจสอบว่า URL ถูกต้องหรือไม่
+try {
+    new URL(baseURL);
+} catch (error) {
+    console.error('Invalid baseURL:', baseURL);
+    baseURL = 'http://127.0.0.1:8000'; // fallback URL
+}
 
 const apiClient = axios.create({
     baseURL: baseURL,
@@ -153,6 +162,168 @@ export const getCurrentUser = async () => {
     } catch (error) {
         console.error('Failed to get current user:', error);
         return null;
+    }
+};
+
+// ===== PROJECT API FUNCTIONS =====
+
+// ดึงรายการโครงการทั้งหมด
+export const getProjects = async () => {
+    try {
+        const response = await apiClient.get('/api/projects/');
+        return response.data;
+    } catch (error) {
+        console.error('Failed to get projects:', error);
+        throw error;
+    }
+};
+
+// ดึงข้อมูลโครงการเดียว
+export const getProject = async (projectId) => {
+    try {
+        const response = await apiClient.get(`/api/projects/${projectId}/`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to get project:', error);
+        throw error;
+    }
+};
+
+// สร้างโครงการใหม่
+export const createProject = async (projectData) => {
+    try {
+        const response = await apiClient.post('/api/projects/', projectData);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to create project:', error);
+        throw error;
+    }
+};
+
+// อัปเดตข้อมูลโครงการ
+export const updateProject = async (projectId, projectData) => {
+    try {
+        const response = await apiClient.patch(`/api/projects/${projectId}/`, projectData);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to update project:', error);
+        throw error;
+    }
+};
+
+// ลบโครงการ
+export const deleteProject = async (projectId) => {
+    try {
+        const response = await apiClient.delete(`/api/projects/${projectId}/`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to delete project:', error);
+        throw error;
+    }
+};
+
+// เปิด/ปิดสถานะโครงการ
+export const toggleProjectStatus = async (projectId, isActive) => {
+    try {
+        const response = await apiClient.patch(`/api/projects/${projectId}/`, {
+            is_active: isActive
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to toggle project status:', error);
+        throw error;
+    }
+};
+
+// ===== USER API FUNCTIONS =====
+
+// ดึงรายการผู้ใช้ทั้งหมด
+export const getUsers = async () => {
+    try {
+        const response = await apiClient.get('/api/users/');
+        return response.data;
+    } catch (error) {
+        console.error('Failed to get users:', error);
+        throw error;
+    }
+};
+
+// สร้างผู้ใช้ใหม่
+export const createUser = async (userData) => {
+    try {
+        const response = await apiClient.post('/api/users/', userData);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to create user:', error);
+        throw error;
+    }
+};
+
+// อัปเดตข้อมูลผู้ใช้
+export const updateUser = async (userId, userData) => {
+    try {
+        const response = await apiClient.patch(`/api/users/${userId}/`, userData);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to update user:', error);
+        throw error;
+    }
+};
+
+// ลบผู้ใช้
+export const deleteUser = async (userId) => {
+    try {
+        const response = await apiClient.delete(`/api/users/${userId}/`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to delete user:', error);
+        throw error;
+    }
+};
+
+// ===== ROLE API FUNCTIONS =====
+
+// ดึงรายการ roles ทั้งหมด
+export const getRoles = async () => {
+    try {
+        const response = await apiClient.get('/api/roles/');
+        return response.data;
+    } catch (error) {
+        console.error('Failed to get roles:', error);
+        throw error;
+    }
+};
+
+// สร้าง role ใหม่
+export const createRole = async (roleData) => {
+    try {
+        const response = await apiClient.post('/api/roles/', roleData);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to create role:', error);
+        throw error;
+    }
+};
+
+// อัปเดตข้อมูล role
+export const updateRole = async (roleId, roleData) => {
+    try {
+        const response = await apiClient.patch(`/api/roles/${roleId}/`, roleData);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to update role:', error);
+        throw error;
+    }
+};
+
+// ลบ role
+export const deleteRole = async (roleId) => {
+    try {
+        const response = await apiClient.delete(`/api/roles/${roleId}/`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to delete role:', error);
+        throw error;
     }
 };
 

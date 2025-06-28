@@ -187,6 +187,99 @@
     font-weight: 500;
 }
 
+/* Stat Details */
+.stat-details {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-details span {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.stat-details .active {
+    background: #f0fff4;
+    color: #38a169;
+    border: 1px solid #c6f6d5;
+}
+
+.stat-details .inactive {
+    background: #fff5f5;
+    color: #e53e3e;
+    border: 1px solid #fed7d7;
+}
+
+.stat-details .role-stat {
+    background: #ebf8ff;
+    color: #3182ce;
+    border: 1px solid #bee3f8;
+}
+
+.stat-details .more {
+    background: #f7fafc;
+    color: #718096;
+    border: 1px solid #e2e8f0;
+    font-style: italic;
+}
+
+/* Role Stats Section */
+.role-stats-section {
+    margin-top: 30px;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.role-stats-section h3 {
+    margin: 0 0 20px 0;
+    color: #2d3748;
+    font-size: 1.3rem;
+    font-weight: 600;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.role-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.role-stat-card {
+    background: #f7fafc;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.role-stat-card:hover {
+    background: #edf2f7;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.role-stat-card .role-name {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.role-stat-card .role-count {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #667eea;
+}
+
 /* User Info Section */
 .user-info-section {
     margin-bottom: 40px;
@@ -309,6 +402,10 @@
 
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+
+    .role-stats-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
 
     .actions-grid {

@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -14,32 +14,30 @@ import TrainingPage from './pages/TrainingPage';
 import Layout from './components/Layout';
 import './App.css';
 
-// สร้าง Component สำหรับป้องกันการเข้าถึงหน้าที่ต้อง Login
+const SESSION_TIMEOUT_MINUTES = 15;
+
+// Component สำหรับป้องกันการเข้าถึงหน้าที่ต้อง Login
 const PrivateRoute = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [showSessionExpired, setShowSessionExpired] = useState(false);
+    const sessionTimeoutRef = useRef();
 
     useEffect(() => {
         const checkAuth = () => {
             const token = localStorage.getItem('accessToken');
             const user = localStorage.getItem('user');
-            
             if (token && user) {
                 try {
-                    // ตรวจสอบว่า token ยังใช้งานได้หรือไม่
                     const tokenData = JSON.parse(atob(token.split('.')[1]));
                     const currentTime = Date.now() / 1000;
-                    
                     if (tokenData.exp > currentTime) {
                         setIsAuthenticated(true);
                     } else {
-                        // Token หมดอายุแล้ว
-                        console.log('Token expired, clearing storage');
                         localStorage.clear();
                         setIsAuthenticated(false);
                     }
                 } catch (error) {
-                    console.error('Error parsing token:', error);
                     localStorage.clear();
                     setIsAuthenticated(false);
                 }
@@ -48,9 +46,32 @@ const PrivateRoute = ({ children }) => {
             }
             setIsLoading(false);
         };
-
         checkAuth();
     }, []);
+
+    // Session timeout logic
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const resetTimeout = () => {
+            if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+            sessionTimeoutRef.current = setTimeout(() => {
+                setShowSessionExpired(true);
+            }, SESSION_TIMEOUT_MINUTES * 60 * 1000);
+        };
+        const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+        events.forEach(event => window.addEventListener(event, resetTimeout));
+        resetTimeout();
+        return () => {
+            events.forEach(event => window.removeEventListener(event, resetTimeout));
+            if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+        };
+    }, [isAuthenticated]);
+
+    const handleSessionExpired = () => {
+        localStorage.clear();
+        setShowSessionExpired(false);
+        window.location.href = '/login';
+    };
 
     if (isLoading) {
         return (
@@ -61,7 +82,23 @@ const PrivateRoute = ({ children }) => {
         );
     }
 
-    return isAuthenticated ? children : <Navigate to="/login" replace />;
+    return (
+        <>
+            {showSessionExpired && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{ background: '#fff', padding: 32, borderRadius: 12, minWidth: 320, textAlign: 'center', boxShadow: '0 2px 16px rgba(0,0,0,0.15)' }}>
+                        <h2 style={{ color: '#dc3545', marginBottom: 16 }}>หมดเวลาใช้งาน</h2>
+                        <p style={{ marginBottom: 24 }}>คุณไม่ได้ใช้งานระบบเกิน {SESSION_TIMEOUT_MINUTES} นาที กรุณาเข้าสู่ระบบใหม่</p>
+                        <button onClick={handleSessionExpired} style={{ padding: '10px 32px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 500, cursor: 'pointer' }}>ตกลง</button>
+                    </div>
+                </div>
+            )}
+            {isAuthenticated ? children : <Navigate to="/login" replace />}
+        </>
+    );
 };
 
 // Component สำหรับ redirect ไปหน้า login ถ้า login แล้ว
@@ -76,19 +113,16 @@ const PublicRoute = ({ children }) => {
             
             if (token && user) {
                 try {
-                    // ตรวจสอบว่า token ยังใช้งานได้หรือไม่
                     const tokenData = JSON.parse(atob(token.split('.')[1]));
                     const currentTime = Date.now() / 1000;
                     
                     if (tokenData.exp > currentTime) {
                         setIsAuthenticated(true);
                     } else {
-                        // Token หมดอายุแล้ว
                         localStorage.clear();
                         setIsAuthenticated(false);
                     }
                 } catch (error) {
-                    console.error('Error parsing token:', error);
                     localStorage.clear();
                     setIsAuthenticated(false);
                 }

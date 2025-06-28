@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ProjectsPage.css';
+import { getProjects, createProject, updateProject, deleteProject, toggleProjectStatus } from '../services/api';
 
 function ProjectsPage() {
   const [projects, setProjects] = useState([]);
@@ -13,31 +14,37 @@ function ProjectsPage() {
   const [showManagePositionsModal, setShowManagePositionsModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
+  // State สำหรับฟอร์ม
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    is_active: true
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  // State สำหรับการลบ
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [projectToDelete, setProjectToDelete] = useState(null);
+
   useEffect(() => {
-    const fetchProjects = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch('http://localhost:8000/api/projects/', {
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : undefined,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          throw new Error('ไม่สามารถดึงข้อมูลโครงการได้ กรุณาลองใหม่อีกครั้ง');
-        }
-        const data = await response.json();
-        setProjects(data);
-      } catch (err) {
-        setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProjects();
   }, []);
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getProjects();
+      setProjects(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getProjectIcon = (projectName) => {
     const icons = ['📋', '🚀', '💼', '🎯', '🔧', '📊', '🌟', '⚡'];
@@ -57,59 +64,57 @@ function ProjectsPage() {
   // ฟังก์ชันสำหรับจัดการโครงการ
   const handleAddProject = () => {
     setSelectedProject(null);
+    setFormData({
+      name: '',
+      description: '',
+      is_active: true
+    });
+    setFormErrors({});
     setShowAddModal(true);
   };
 
   const handleEditProject = (project) => {
     setSelectedProject(project);
+    setFormData({
+      name: project.name,
+      description: project.description || '',
+      is_active: project.is_active
+    });
+    setFormErrors({});
     setShowEditModal(true);
   };
 
   const handleToggleProjectStatus = async (project) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:8000/api/projects/${project.id}/`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : undefined,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_active: !project.is_active
-        })
-      });
-      
-      if (response.ok) {
-        setProjects(projects.map(p => 
-          p.id === project.id ? { ...p, is_active: !p.is_active } : p
-        ));
-      } else {
-        throw new Error('ไม่สามารถอัพเดทสถานะโครงการได้');
-      }
+      await toggleProjectStatus(project.id, !project.is_active);
+      setProjects(projects.map(p => 
+        p.id === project.id ? { ...p, is_active: !p.is_active } : p
+      ));
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.detail || err.message || 'ไม่สามารถอัพเดทสถานะโครงการได้');
     }
   };
 
-  const handleDeleteProject = async (project) => {
-    if (window.confirm(`คุณต้องการลบโครงการ "${project.name}" ใช่หรือไม่?`)) {
-      try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(`http://localhost:8000/api/projects/${project.id}/`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : undefined,
-          },
-        });
-        
-        if (response.ok) {
-          setProjects(projects.filter(p => p.id !== project.id));
-        } else {
-          throw new Error('ไม่สามารถลบโครงการได้');
-        }
-      } catch (err) {
-        setError(err.message);
-      }
+  const handleDeleteProject = (project) => {
+    setProjectToDelete(project);
+    setDeleteInput("");
+    setDeleteError("");
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (deleteInput !== "CONFIRM") {
+      setDeleteError("คุณพิมพ์ไม่ถูกต้อง กรุณาพิมพ์ CONFIRM เพื่อยืนยัน");
+      return;
+    }
+    
+    try {
+      await deleteProject(projectToDelete.id);
+      setProjects(projects.filter(p => p.id !== projectToDelete.id));
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
+    } catch (err) {
+      setDeleteError(err.response?.data?.detail || err.message || 'ไม่สามารถลบโครงการได้');
     }
   };
 
@@ -121,6 +126,100 @@ function ProjectsPage() {
   const handleManagePositions = (project) => {
     setSelectedProject(project);
     setShowManagePositionsModal(true);
+  };
+
+  // ฟังก์ชันสำหรับจัดการฟอร์ม
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    
+    // ล้าง error ของฟิลด์นี้
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.name.trim()) {
+      errors.name = 'กรุณากรอกชื่อโครงการ';
+    }
+    if (formData.name.trim().length < 3) {
+      errors.name = 'ชื่อโครงการต้องมีอย่างน้อย 3 ตัวอักษร';
+    }
+    return errors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (selectedProject) {
+        // แก้ไขโครงการ
+        const updatedProject = await updateProject(selectedProject.id, formData);
+        setProjects(projects.map(p => 
+          p.id === selectedProject.id ? updatedProject : p
+        ));
+        setShowEditModal(false);
+      } else {
+        // สร้างโครงการใหม่
+        const newProject = await createProject(formData);
+        setProjects([newProject, ...projects]);
+        setShowAddModal(false);
+      }
+      
+      // รีเซ็ตฟอร์ม
+      setFormData({
+        name: '',
+        description: '',
+        is_active: true
+      });
+      setFormErrors({});
+    } catch (err) {
+      const errorData = err.response?.data;
+      if (errorData) {
+        // แสดง error จาก backend
+        const backendErrors = {};
+        Object.keys(errorData).forEach(key => {
+          if (Array.isArray(errorData[key])) {
+            backendErrors[key] = errorData[key][0];
+          } else {
+            backendErrors[key] = errorData[key];
+          }
+        });
+        setFormErrors(backendErrors);
+      } else {
+        setError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setShowEditModal(false);
+    setShowManageUsersModal(false);
+    setShowManagePositionsModal(false);
+    setFormData({
+      name: '',
+      description: '',
+      is_active: true
+    });
+    setFormErrors({});
   };
 
   return (
@@ -241,22 +340,71 @@ function ProjectsPage() {
       )}
 
       {/* Modal สำหรับเพิ่ม/แก้ไขโครงการ */}
-      {showAddModal && (
+      {(showAddModal || showEditModal) && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3>เพิ่มโครงการใหม่</h3>
-            <p>ฟีเจอร์นี้จะเพิ่มในภายหลัง</p>
-            <button onClick={() => setShowAddModal(false)}>ปิด</button>
-          </div>
-        </div>
-      )}
+            <div className="modal-header">
+              <h3>{selectedProject ? 'แก้ไขโครงการ' : 'เพิ่มโครงการใหม่'}</h3>
+              <button onClick={closeModal} className="modal-close">×</button>
+            </div>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="name">ชื่อโครงการ *</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className={formErrors.name ? 'error' : ''}
+                  placeholder="กรอกชื่อโครงการ"
+                />
+                {formErrors.name && <span className="error-message">{formErrors.name}</span>}
+              </div>
 
-      {showEditModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3>แก้ไขโครงการ: {selectedProject?.name}</h3>
-            <p>ฟีเจอร์นี้จะเพิ่มในภายหลัง</p>
-            <button onClick={() => setShowEditModal(false)}>ปิด</button>
+              <div className="form-group">
+                <label htmlFor="description">คำอธิบาย</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows="3"
+                  placeholder="กรอกคำอธิบายโครงการ (ไม่บังคับ)"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={formData.is_active}
+                    onChange={handleInputChange}
+                  />
+                  <span>เปิดใช้งานโครงการ</span>
+                </label>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="btn-cancel"
+                  disabled={submitting}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  disabled={submitting}
+                >
+                  {submitting ? 'กำลังบันทึก...' : (selectedProject ? 'อัปเดต' : 'สร้าง')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -265,7 +413,10 @@ function ProjectsPage() {
       {showManageUsersModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3>จัดการผู้ใช้ในโครงการ: {selectedProject?.name}</h3>
+            <div className="modal-header">
+              <h3>จัดการผู้ใช้ในโครงการ: {selectedProject?.name}</h3>
+              <button onClick={closeModal} className="modal-close">×</button>
+            </div>
             <p>ดูและจัดการผู้ใช้ที่อยู่ในโครงการนี้</p>
             <div style={{ marginTop: 16 }}>
               <p>ฟีเจอร์นี้จะเพิ่มในภายหลัง</p>
@@ -276,7 +427,9 @@ function ProjectsPage() {
                 <li>จัดการสิทธิ์ในโครงการ</li>
               </ul>
             </div>
-            <button onClick={() => setShowManageUsersModal(false)}>ปิด</button>
+            <div className="modal-actions">
+              <button onClick={closeModal} className="btn-cancel">ปิด</button>
+            </div>
           </div>
         </div>
       )}
@@ -285,7 +438,10 @@ function ProjectsPage() {
       {showManagePositionsModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3>จัดการตำแหน่งในโครงการ: {selectedProject?.name}</h3>
+            <div className="modal-header">
+              <h3>จัดการตำแหน่งในโครงการ: {selectedProject?.name}</h3>
+              <button onClick={closeModal} className="modal-close">×</button>
+            </div>
             <p>กำหนดและจัดการตำแหน่งต่างๆ ในโครงการ</p>
             <div style={{ marginTop: 16 }}>
               <p>ฟีเจอร์นี้จะเพิ่มในภายหลัง</p>
@@ -296,7 +452,78 @@ function ProjectsPage() {
                 <li>มอบหมายผู้ใช้ให้ตำแหน่งต่างๆ</li>
               </ul>
             </div>
-            <button onClick={() => setShowManagePositionsModal(false)}>ปิด</button>
+            <div className="modal-actions">
+              <button onClick={closeModal} className="btn-cancel">ปิด</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal ยืนยันการลบโครงการ */}
+      {showDeleteModal && projectToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 style={{ color: '#e53e3e' }}>ยืนยันการลบโครงการ</h3>
+              <button 
+                onClick={() => { 
+                  setShowDeleteModal(false); 
+                  setProjectToDelete(null); 
+                  setDeleteInput(""); 
+                  setDeleteError(""); 
+                }} 
+                className="modal-close"
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ marginBottom: 16 }}>
+              การลบโครงการเป็นการกระทำที่ไม่สามารถย้อนกลับได้<br />
+              กรุณาพิมพ์คำว่า <b>CONFIRM</b> เพื่อยืนยันการลบโครงการ <b>{projectToDelete.name}</b>
+            </p>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={e => { setDeleteInput(e.target.value); setDeleteError(""); }}
+              placeholder="พิมพ์ CONFIRM ที่นี่"
+              style={{ 
+                width: '100%', 
+                padding: 12, 
+                borderRadius: 8, 
+                border: '2px solid #e9ecef', 
+                marginBottom: 12,
+                fontSize: 14
+              }}
+            />
+            {deleteError && <div style={{ color: '#dc3545', marginBottom: 12, fontSize: 12 }}>{deleteError}</div>}
+            <div className="modal-actions">
+              <button
+                onClick={() => { 
+                  setShowDeleteModal(false); 
+                  setProjectToDelete(null); 
+                  setDeleteInput(""); 
+                  setDeleteError(""); 
+                }}
+                className="btn-cancel"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmDeleteProject}
+                style={{ 
+                  padding: '10px 20px', 
+                  background: '#e53e3e', 
+                  color: '#fff', 
+                  border: 'none', 
+                  borderRadius: 6, 
+                  cursor: 'pointer', 
+                  fontWeight: 600,
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                ยืนยันการลบ
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -33,14 +33,15 @@ class ProjectSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()
     user_roles = serializers.SerializerMethodField()
+    password = serializers.CharField(write_only=True, required=False)
     
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'employee_id', 'position', 'department', 'phone', 'address',
-            'date_of_birth', 'hire_date', 'is_active', 'is_staff', 'is_superuser',
-            'date_joined', 'groups', 'user_roles'
+            'date_of_birth', 'hire_date', 'termination_date', 'is_active', 'is_staff', 'is_superuser',
+            'date_joined', 'groups', 'user_roles', 'password'
         ]
         read_only_fields = ['id', 'date_joined']
     
@@ -48,18 +49,101 @@ class UserSerializer(serializers.ModelSerializer):
         return [group.name for group in obj.groups.all()]
     
     def get_user_roles(self, obj):
-        active_roles = obj.user_roles.filter(is_active=True, role__is_active=True)
-        return [
-            {
-                'id': user_role.id,
-                'role_name': user_role.role.name,
-                'role_color': user_role.role.color,
-                'assigned_at': user_role.assigned_at,
-                'expires_at': user_role.expires_at,
-                'is_expired': user_role.is_expired
+        try:
+            active_roles = obj.user_roles.filter(is_active=True, role__is_active=True)
+            return [
+                {
+                    'id': user_role.id,
+                    'role_name': user_role.role.name,
+                    'role_color': user_role.role.color,
+                    'assigned_at': user_role.assigned_at,
+                    'expires_at': user_role.expires_at,
+                    'is_expired': user_role.is_expired
+                }
+                for user_role in active_roles
+            ]
+        except Exception as e:
+            print(f"Error in get_user_roles for user {obj.username}: {e}")  # Debug log
+            return []
+    
+    def create(self, validated_data):
+        """สร้าง user ใหม่พร้อมรหัสผ่าน"""
+        password = validated_data.pop('password', None)
+        
+        # จัดการ employee_id - ถ้าเป็นค่าว่างให้เป็น None
+        if 'employee_id' in validated_data and not validated_data['employee_id']:
+            validated_data['employee_id'] = None
+        
+        user = User.objects.create(**validated_data)
+        
+        if password:
+            user.set_password(password)
+            user.save()
+        
+        return user
+    
+    def update(self, instance, validated_data):
+        """อัปเดต user พร้อมรหัสผ่าน (ถ้ามี)"""
+        password = validated_data.pop('password', None)
+        
+        # จัดการ employee_id - ถ้าเป็นค่าว่างให้เป็น None
+        if 'employee_id' in validated_data:
+            if not validated_data['employee_id'] or validated_data['employee_id'].strip() == '':
+                validated_data['employee_id'] = None
+            else:
+                validated_data['employee_id'] = validated_data['employee_id'].strip()
+        
+        # จัดการฟิลด์อื่นๆ ที่อาจเป็นค่าว่าง
+        empty_fields = ['position', 'department', 'phone', 'address']
+        for field in empty_fields:
+            if field in validated_data and (not validated_data[field] or validated_data[field].strip() == ''):
+                validated_data[field] = None
+            elif field in validated_data:
+                validated_data[field] = validated_data[field].strip()
+        
+        # อัปเดตข้อมูลอื่นๆ
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        # อัปเดตรหัสผ่าน (ถ้ามี)
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance
+
+    def to_representation(self, instance):
+        """
+        Override to_representation เพื่อเพิ่ม error handling
+        """
+        try:
+            return super().to_representation(instance)
+        except Exception as e:
+            # Return basic user info if serialization fails
+            return {
+                'id': instance.id,
+                'username': instance.username,
+                'email': instance.email,
+                'first_name': instance.first_name,
+                'last_name': instance.last_name,
+                'is_active': instance.is_active,
+                'error': 'Serialization error'
             }
-            for user_role in active_roles
-        ]
+
+    def validate_employee_id(self, value):
+        """
+        ตรวจสอบว่า employee_id ไม่ซ้ำกับคนอื่น
+        """
+        if value:
+            # ตรวจสอบว่ามี employee_id นี้อยู่แล้วหรือไม่
+            user = self.instance  # user ที่กำลังอัปเดต (ถ้ามี)
+            
+            existing_user = User.objects.filter(employee_id=value).first()
+            
+            if existing_user and (not user or existing_user.id != user.id):
+                raise serializers.ValidationError("รหัสพนักงานนี้ถูกใช้งานแล้ว กรุณาใช้รหัสอื่น")
+        
+        return value
 
 
 # 4. Serializer สำหรับ Role

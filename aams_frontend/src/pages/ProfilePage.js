@@ -10,7 +10,12 @@ function ProfilePage() {
         email: '',
         employee_id: '',
         position: '',
-        department: ''
+        department: '',
+        phone: '',
+        address: '',
+        date_of_birth: '',
+        hire_date: '',
+        termination_date: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -22,47 +27,46 @@ function ProfilePage() {
     }, []);
 
     const loadUserData = async () => {
+        setLoading(true);
+        setError('');
+        
         try {
-            setLoading(true);
-            
-            // ดึงข้อมูลผู้ใช้จาก API
-            const userResponse = await apiClient.get('/api/users/me/');
-            const userData = userResponse.data;
-            setUser(userData);
-            
-            // เติมข้อมูลในฟอร์ม
-            setFormData({
-                first_name: userData.first_name || '',
-                last_name: userData.last_name || '',
-                email: userData.email || '',
-                employee_id: userData.employee_id || '',
-                position: userData.position || '',
-                department: userData.department || ''
-            });
-
-        } catch (error) {
-            console.error('Error loading user data:', error);
-            // ถ้า API error ให้ใช้ข้อมูลจาก localStorage แทน
+            // ดึงข้อมูลผู้ใช้จาก localStorage ก่อน
             const userData = localStorage.getItem('user');
             if (userData) {
                 try {
                     const parsedUser = JSON.parse(userData);
                     setUser(parsedUser);
-                    setFormData({
-                        first_name: parsedUser.first_name || '',
-                        last_name: parsedUser.last_name || '',
-                        email: parsedUser.email || '',
-                        employee_id: parsedUser.employee_id || '',
-                        position: parsedUser.position || '',
-                        department: parsedUser.department || ''
-                    });
                 } catch (parseError) {
                     console.error('Error parsing user data:', parseError);
-                    setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
                 }
-            } else {
-                setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
             }
+            
+            // ถ้าไม่มี user ID ให้ใช้ /api/users/me/ แทน
+            let response;
+            if (user?.id) {
+                response = await apiClient.get(`/api/users/${user.id}/`);
+            } else {
+                response = await apiClient.get('/api/users/me/');
+                setUser(response.data);
+            }
+            
+            setFormData({
+                first_name: response.data.first_name || '',
+                last_name: response.data.last_name || '',
+                email: response.data.email || '',
+                employee_id: response.data.employee_id || '',
+                position: response.data.position || '',
+                department: response.data.department || '',
+                phone: response.data.phone || '',
+                address: response.data.address || '',
+                date_of_birth: response.data.date_of_birth || '',
+                hire_date: response.data.hire_date || '',
+                termination_date: response.data.termination_date || ''
+            });
+        } catch (error) {
+            console.error('Error loading user data:', error);
+            setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
         } finally {
             setLoading(false);
         }
@@ -87,8 +91,38 @@ function ProfilePage() {
         setSuccess('');
 
         try {
+            // ตรวจสอบฟิลด์ที่จำเป็น
+            const requiredFields = {
+                first_name: 'ชื่อ',
+                last_name: 'นามสกุล', 
+                email: 'อีเมล'
+            };
+
+            const missingFields = [];
+            for (const [field, label] of Object.entries(requiredFields)) {
+                if (!formData[field] || formData[field].trim() === '') {
+                    missingFields.push(label);
+                }
+            }
+
+            if (missingFields.length > 0) {
+                setError(`กรุณากรอกฟิลด์ที่จำเป็น: ${missingFields.join(', ')}`);
+                setSaving(false);
+                return;
+            }
+
+            // จัดการข้อมูลที่ว่างเปล่าให้เป็น null
+            const dataToSend = { ...formData };
+            const optionalFields = ['employee_id', 'position', 'department', 'phone', 'address', 'date_of_birth', 'hire_date', 'termination_date'];
+            
+            for (const field of optionalFields) {
+                if (!dataToSend[field] || dataToSend[field].trim() === '') {
+                    dataToSend[field] = null;
+                }
+            }
+
             // อัปเดตข้อมูลผู้ใช้
-            const response = await apiClient.patch(`/api/users/${user.id}/`, formData);
+            const response = await apiClient.patch(`/api/users/${user.id}/`, dataToSend);
             
             // อัปเดตข้อมูลใน localStorage
             const updatedUser = { ...user, ...response.data };
@@ -102,8 +136,31 @@ function ProfilePage() {
             if (error.response?.data) {
                 const data = error.response.data;
                 if (typeof data === 'object') {
-                    const errorMessages = Object.values(data).flat();
-                    setError(errorMessages.join(', '));
+                    // แปลง field names เป็นภาษาไทย
+                    const fieldLabels = {
+                        first_name: 'ชื่อ',
+                        last_name: 'นามสกุล',
+                        email: 'อีเมล',
+                        employee_id: 'รหัสพนักงาน',
+                        position: 'ตำแหน่ง',
+                        department: 'แผนก',
+                        phone: 'เบอร์โทรศัพท์',
+                        address: 'ที่อยู่',
+                        date_of_birth: 'วันเกิด',
+                        hire_date: 'วันเริ่มงาน',
+                        termination_date: 'วันลาออก'
+                    };
+
+                    const errorMessages = [];
+                    for (const [field, errors] of Object.entries(data)) {
+                        const fieldLabel = fieldLabels[field] || field;
+                        if (Array.isArray(errors)) {
+                            errorMessages.push(`${fieldLabel}: ${errors.join(', ')}`);
+                        } else {
+                            errorMessages.push(`${fieldLabel}: ${errors}`);
+                        }
+                    }
+                    setError(`เกิดข้อผิดพลาด: ${errorMessages.join('; ')}`);
                 } else {
                     setError('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
                 }
@@ -177,6 +234,9 @@ function ProfilePage() {
                 <form onSubmit={handleSubmit} className="profile-form">
                     <div className="form-section">
                         <h3>ข้อมูลส่วนตัว</h3>
+                        <p style={{ color: '#666', fontSize: '14px', marginBottom: '16px' }}>
+                            ฟิลด์ที่มีเครื่องหมาย * เป็นฟิลด์ที่จำเป็นต้องกรอก
+                        </p>
                         
                         <div className="form-row">
                             <div className="form-group">
@@ -188,6 +248,7 @@ function ProfilePage() {
                                     value={formData.first_name}
                                     onChange={handleInputChange}
                                     placeholder="กรอกชื่อ"
+                                    required
                                 />
                             </div>
                             
@@ -200,6 +261,7 @@ function ProfilePage() {
                                     value={formData.last_name}
                                     onChange={handleInputChange}
                                     placeholder="กรอกนามสกุล"
+                                    required
                                 />
                             </div>
                         </div>
@@ -213,6 +275,7 @@ function ProfilePage() {
                                 value={formData.email}
                                 onChange={handleInputChange}
                                 placeholder="กรอกอีเมล"
+                                required
                             />
                         </div>
                     </div>
@@ -228,8 +291,11 @@ function ProfilePage() {
                                 name="employee_id"
                                 value={formData.employee_id}
                                 onChange={handleInputChange}
-                                placeholder="กรอกรหัสพนักงาน"
+                                placeholder="กรอกรหัสพนักงาน (ไม่ซ้ำกับคนอื่น)"
                             />
+                            <small style={{ color: '#666', fontSize: '12px' }}>
+                                ถ้าระบุรหัสพนักงาน ต้องไม่ซ้ำกับคนอื่นในระบบ
+                            </small>
                         </div>
 
                         <div className="form-row">
@@ -254,6 +320,63 @@ function ProfilePage() {
                                     value={formData.department}
                                     onChange={handleInputChange}
                                     placeholder="กรอกแผนก"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="phone">เบอร์โทรศัพท์</label>
+                            <input
+                                type="text"
+                                id="phone"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleInputChange}
+                                placeholder="กรอกเบอร์โทรศัพท์"
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="address">ที่อยู่</label>
+                            <textarea
+                                id="address"
+                                name="address"
+                                value={formData.address}
+                                onChange={handleInputChange}
+                                placeholder="กรอกที่อยู่"
+                                rows="3"
+                            />
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label htmlFor="date_of_birth">วันเกิด</label>
+                                <input
+                                    type="date"
+                                    id="date_of_birth"
+                                    name="date_of_birth"
+                                    value={formData.date_of_birth}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="hire_date">วันเริ่มงาน</label>
+                                <input
+                                    type="date"
+                                    id="hire_date"
+                                    name="hire_date"
+                                    value={formData.hire_date}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="termination_date">วันลาออก</label>
+                                <input
+                                    type="date"
+                                    id="termination_date"
+                                    name="termination_date"
+                                    value={formData.termination_date}
+                                    onChange={handleInputChange}
                                 />
                             </div>
                         </div>

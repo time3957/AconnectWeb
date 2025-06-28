@@ -198,18 +198,19 @@
 /* ส่วนท้ายการ์ด */
 .project-footer {
   margin-top: 20px;
-  padding-top: 20px;
-  border-top: 2px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .project-footer > div:first-child {
-  font-size: 12px;
   color: #6c757d;
-  margin-bottom: 16px;
-  font-style: italic;
+  font-size: 12px;
+  font-weight: 500;
 }
 
-/* ปุ่มจัดการ */
 .project-actions {
   display: flex;
   gap: 8px;
@@ -217,12 +218,12 @@
 }
 
 .project-actions button {
-  padding: 8px 16px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
@@ -236,19 +237,19 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* สีปุ่มต่างๆ */
 .btn-edit {
-  background: linear-gradient(135deg, #007bff, #0056b3);
+  background: linear-gradient(135deg, #17a2b8, #138496);
   color: white;
 }
 
 .btn-toggle {
   background: linear-gradient(135deg, #ffc107, #e0a800);
-  color: white;
+  color: #212529;
 }
 
 .btn-toggle.active {
   background: linear-gradient(135deg, #28a745, #1e7e34);
+  color: white;
 }
 
 .btn-manage-users {
@@ -270,9 +271,7 @@
 .loading-container {
   text-align: center;
   padding: 60px 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  color: white;
 }
 
 .loading-container div {
@@ -288,33 +287,35 @@
 
 .error-container {
   background: rgba(220, 53, 69, 0.1);
-  border: 2px solid #dc3545;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
+  border: 1px solid rgba(220, 53, 69, 0.3);
   color: #dc3545;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+  text-align: center;
   font-weight: 500;
 }
 
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  background: rgba(255, 255, 255, 0.95);
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  grid-column: 1 / -1;
+  backdrop-filter: blur(10px);
 }
 
 .empty-state div {
   font-size: 64px;
   margin-bottom: 16px;
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .empty-state p {
-  color: #6c757d;
   font-size: 18px;
   font-weight: 500;
+  margin: 0;
+  opacity: 0.9;
 }
 
 /* Modal Styles */
@@ -324,24 +325,26 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease;
 }
 
 .modal-content {
   background: white;
-  padding: 32px;
   border-radius: 16px;
-  max-width: 600px;
+  padding: 0;
+  max-width: 500px;
   width: 90%;
-  max-height: 80vh;
-  overflow: auto;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modalSlideIn 0.3s ease;
+  position: relative;
 }
 
 @keyframes modalSlideIn {
@@ -355,47 +358,175 @@
   }
 }
 
-.modal-content h3 {
-  color: #2c3e50;
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 16px 0;
-  border-bottom: 2px solid #e9ecef;
-  padding-bottom: 12px;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.modal-content p {
-  color: #6c757d;
-  font-size: 16px;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
-
-.modal-content ul {
-  color: #495057;
-  line-height: 1.8;
+/* Modal Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 24px 0 24px;
+  border-bottom: 1px solid #e9ecef;
   margin-bottom: 24px;
 }
 
-.modal-content li {
-  margin-bottom: 8px;
-  padding-left: 8px;
+.modal-header h3 {
+  color: #2c3e50;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
 }
 
-.modal-content button {
-  background: linear-gradient(135deg, #007bff, #0056b3);
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background: #f8f9fa;
+  color: #dc3545;
+}
+
+/* Form Styles */
+.modal-content form {
+  padding: 0 24px 24px 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-group input.error,
+.form-group textarea.error {
+  border-color: #dc3545;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn-cancel {
+  padding: 10px 20px;
+  background: #6c757d;
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s ease;
 }
 
-.modal-content button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
+.btn-cancel:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.btn-submit {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0056b3, #004085);
+  transform: translateY(-1px);
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Modal Content for Info Modals */
+.modal-content p {
+  color: #6c757d;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.modal-content ul {
+  margin: 16px 0;
+  padding-left: 20px;
+}
+
+.modal-content li {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 8px;
+  line-height: 1.5;
 }
 
 /* Responsive Design */
@@ -406,7 +537,6 @@
   
   .projects-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
   }
   
   .project-card {
@@ -414,8 +544,7 @@
   }
   
   .project-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
   }
   
   .project-actions {
@@ -424,12 +553,11 @@
   
   .project-actions button {
     width: 100%;
-    justify-content: center;
   }
   
   .modal-content {
-    padding: 24px;
-    margin: 16px;
+    width: 95%;
+    margin: 20px;
   }
 }
 
@@ -446,12 +574,12 @@
   
   .project-stats {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 
-/* Animation for project cards */
 .project-card {
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp 0.6s ease;
 }
 
 @keyframes fadeInUp {
@@ -465,7 +593,6 @@
   }
 }
 
-/* Stagger animation for multiple cards */
 .project-card:nth-child(1) { animation-delay: 0.1s; }
 .project-card:nth-child(2) { animation-delay: 0.2s; }
 .project-card:nth-child(3) { animation-delay: 0.3s; }

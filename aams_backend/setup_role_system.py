@@ -42,6 +42,11 @@ def create_roles():
             'color': '#17a2b8'
         },
         {
+            'name': 'Basic User',
+            'description': 'ผู้ใช้พื้นฐาน มีสิทธิ์เข้าถึงระบบขั้นพื้นฐาน',
+            'color': '#6f42c1'
+        },
+        {
             'name': 'Trainee',
             'description': 'ผู้ฝึกงาน กำลังเรียนรู้ระบบ',
             'color': '#6c757d'
@@ -126,6 +131,9 @@ def assign_role_permissions(roles, permissions):
         ],
         'Agent': [
             'view_dashboard', 'view_projects'
+        ],
+        'Basic User': [
+            'view_dashboard'
         ],
         'Trainee': [
             'view_dashboard'

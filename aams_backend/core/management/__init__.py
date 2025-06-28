@@ -1,0 +1,1 @@
+# Management package สำหรับ core app 
